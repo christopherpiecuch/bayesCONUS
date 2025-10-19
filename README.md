@@ -1,9 +1,9 @@
 # bayesCONUS
  The computer code used to run the Bayesian model and produce the results in Piecuch (2025), The Rate of U.S. Coastal Sea-Level Rise Doubled in the Past Century, written in the MATLAB software environment 
 
-bayesGIA
+bayesCONUS
 
-README file last updated by Christopher Piecuch, cpiecuch-at-whoi-dot-edu, Sat Aug 9 2025
+README file last updated by Christopher Piecuch, cpiecuch-at-whoi-dot-edu, Sun Oct 19 2025
 
 Basic description
 
@@ -11,7 +11,7 @@ Citation
 
 This code was generated to produce the results presented in the main text of:
 
-Piecuch, C. G.,  “The Rate of U.S. Coastal Sea-Level Rise Doubled in the Past Century”, xxx.
+Piecuch, C. G.,  “The Rate of U.S. Coastal Sea-Level Rise Doubled in the Past Century”, AGU Advances, 2025AV002018.
 
 Please cite this reference when using this code. 
 
@@ -26,6 +26,7 @@ MATLAB .m files
 •	bayes_main_code.m: This performs the Bayesian inference at and based on the tide-gauge data
 •	bayes_posterior_prediction.m: This performs posterior prediction, taking the solutions from bayes_main_code.m at tide-gauge locations and makes inference at the regular 0.5-degree CONUS grid
 •	bayes_make_figures.m: This makes the figures shown in the paper.
+•	bayes_plot_residuals.m: This plots residual differences between Bayesian model solution and tide-gauge data.
 •	delete_burn_in.m: delete “burn-in” (or “warm-up”) transients from model solution
 •	determine_clusters.m: create matrix used in spatial covariance structure of relative sea level fluctuations
 •	EarthDistances.m: compute distances between latitude and longitude points on a spherical Earth
