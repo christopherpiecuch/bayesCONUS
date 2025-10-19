@@ -61,7 +61,6 @@ var0_infl=1;
 HP.eta_tilde_y_0 = y0;
 HP.zeta_tilde_y_0_2 = diag((d+0.05).^2);
 
-
 % r
 HP.u_tilde_r                = 0.1;% Lower bound of r prior
 HP.v_tilde_r                = 0.9; % Upper bound of r prior
@@ -69,6 +68,10 @@ HP.v_tilde_r                = 0.9; % Upper bound of r prior
 % mu
 HP.eta_tilde_mu             = nanmean(m);%+nanmean(u);% Mean of mu prior
 HP.zeta_tilde_mu_2          = var_infl2*(nanvar(m));%+nanvar(u)); % Variance of mu prior
+
+% mu
+HP.eta_tilde_alpha             = 0;% Mean of alpha prior
+HP.zeta_tilde_alpha_2          = 1e-6;% Variance of alpha prior
 
 % nu
 HP.eta_tilde_nu             = nanmean(l); % Mean of nu prior
@@ -94,6 +97,10 @@ HP.chi_tilde_tau_2          = 1/2*nanvar(l); % Inverse scale of tau_2 prior
 HP.xi_tilde_gamma_2         = 1/2; % Shape of tau_2 prior
 HP.chi_tilde_gamma_2        = 1/2*(1e-3)^2; % Guess (1 mm/yr)^2 error variance
 
+% omega_2
+HP.xi_tilde_omega_2         = 1/2; % Shape of omega_2 prior
+HP.chi_tilde_omega_2        = 1/2*(1e-4)^2; % Guess (0.1 mm/yr^2)^2 error variance
+
 priorRangeMean              = -6.9;
 % priorChoice = 1 --> (0.35)^2 -- middle of the road
 % priorChoice = 2 --> (0.70)^2 -- wide priors
@@ -112,6 +119,10 @@ end
 % phi
 HP.eta_tilde_phi            = priorRangeMean; % "Mean" of phi prior
 HP.zeta_tilde_phi_2         = priorRangeVar; % "Variance" of phi prior
+
+% rho
+HP.eta_tilde_rho            = priorRangeMean; % "Mean" of rho prior
+HP.zeta_tilde_rho_2         = priorRangeVar; % "Variance" of rho prior
 
 % lambda (this one's strongly constrained; 95% within 500,2000 km)
 HP.eta_tilde_lambda         = priorRangeMean; % "Mean" of phi prior

@@ -1,7 +1,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %   function bayes_make_figures
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Code written by CGP 09 August 2025
+% Original code written by CGP 09 August 2025
+% Updated code written by CGP 19 October 2025
 % This code makes the figures in Piecuch (2025)
 % NB factors of 1e3 are to convert from m to mm and
 % factors of 1e2 are to convert from m to cm
@@ -9,16 +10,19 @@
 function bayes_make_figures(experimentName,runnum)
 
 % load all gridded solution files
-a=[]; b=[]; bg=[]; l=[]; y=[]; yg=[];
+a=[]; b=[]; bg=[]; l=[]; y=[]; yg=[]; bg=[]; gg=[];
 for kk=1:numel(runnum), disp(num2str(kk))
     load(['bayes_model_solutions/experiment_',experimentName,'_runNum_',num2str(runnum(kk)),'_gridded.mat']);
     a=[a; A];
     l=[l; L];
     y=[y; Y];
     yg=[yg; YG];
-    clear A L Y YG B BG
+    bg=[bg; BG];
+    gg=[gg; GG];
+    clear A L Y YG B BG GG G
 end
 A=a; L=l; Y=y; YG=yg; clear a l y yg
+BG=bg; GG=gg; clear bg gg
 NumIter=numel(A)/numel(LON);
 
 % load color map and define example locations
@@ -30,6 +34,20 @@ exlocs=[46 50 14 15 31 27]; % example locations
 LD=permute(reshape(reshape(L,NumIter*numel(NAME),1)*ones(1,numel(T)),NumIter,numel(LON),numel(T)),[1 3 2]);
 AD=permute(reshape(reshape(A,NumIter*numel(NAME),1)*T,NumIter,numel(LON),numel(T)),[1 3 2]);
 YD=Y+LD+AD;
+
+% define instantaneous quadratic and linear rates
+RATEGQ=permute(reshape(2*reshape(GG,numel(GG),1)*T+...
+        reshape(BG,numel(BG),1)*ones(size(T)),NumIter,numel(GLON),numel(T)),[1 3 2]);
+RATEGL=permute(reshape(reshape(BG,numel(BG),1)*ones(size(T)),NumIter,numel(GLON),numel(T)),[1 3 2]);
+
+% define quadratic and linear fits
+QuadPart=permute(reshape(reshape(GG,numel(GG),1)*T.^2,NumIter,numel(GLON),numel(T)),[1 3 2]); % quadratic part of solution
+LinPart=permute(reshape(reshape(BG,numel(BG),1)*T,NumIter,numel(GLON),numel(T)),[1 3 2]); % linear part of solution
+QuadPartConst=squeeze(mean(QuadPart,2)); % constant offset in quadratic part (positive definite) to add as intercept to linear part
+QuadPartConst=reshape(reshape(QuadPartConst,numel(QuadPartConst),1)*ones(size(T)),NumIter,numel(GLON),numel(T));
+QuadPartConst=permute(QuadPartConst,[1 3 2]);
+SLevQ=QuadPart+LinPart;
+SLevL=QuadPartConst+LinPart;
 
 % make prelim figure to get lon/lat bounds
 figure
@@ -105,35 +123,31 @@ title([{'c. RSL Changes at'};{'Example Locations'}],'fontweight','normal')
 xlabel('Year','fontsize',12,'fontweight','normal')
 
 % define cos(latitude) weighting mask
+ijk=find(GLON>=-100&GLON<=-90); % define the western gulf
+weight=reshape(ones(NumIter,1)*cos(pi/180*GLAT'),NumIter,numel(GLON));
+weight2=weight; % this is the mask for the no-western-gulf calculation
+weight2(:,ijk)=0; % mask for omitting western gulf
 WEIGHT=reshape(ones(NumIter*125,1)*cos(pi/180*GLAT'),NumIter,numel(T),numel(GLON));
 WEIGHT2=WEIGHT; % this is the mask for the no-western-gulf calculation
-ijk=find(GLON>=-100&GLON<=-90); % define the western gulf
 WEIGHT2(:,:,ijk)=0; % mask for omitting western gulf
-YGM=sum(YG.*WEIGHT,3)./sum(WEIGHT,3);
-YGM2=sum(YG.*WEIGHT2,3)./sum(WEIGHT2,3);
-for kk=1:NumIter, disp(num2str(kk))
-    pp=[]; pp=polyfit(T,YGM(kk,:),2); 
-    RATEQ(kk,:)=2*pp(1)*T+pp(2); 
-    ACCQ(kk)=2*pp(1);
-    TRENDQ(kk)=pp(2);
-    SLQ(kk,:)=pp(1)*T.^2+pp(2)*T+pp(3);
-    pp=[]; pp=polyfit(T,YGM(kk,:),1); 
-    TRENDL(kk)=pp(1);
-    SLL(kk,:)=pp(1)*T+pp(2);
 
-    % omitting western gulf
-    pp=[]; pp=polyfit(T,YGM2(kk,:),2); 
-    RATEQ2(kk,:)=2*pp(1)*T+pp(2); 
-    ACCQ2(kk)=2*pp(1);
-    TRENDQ2(kk)=pp(2);
-    SLQ2(kk,:)=pp(1)*T.^2+pp(2)*T+pp(3);
-    pp=[]; pp=polyfit(T,YGM2(kk,:),1); 
-    TRENDL2(kk)=pp(1);
-    SLL2(kk,:)=pp(1)*T+pp(2);
-end
-% define historical trends as time series
-RATEL=TRENDL'*ones(1,numel(YEAR));
-RATEL2=TRENDL2'*ones(1,numel(YEAR));
+% compute conus averages
+YGM=sum(YG.*WEIGHT,3)./sum(WEIGHT,3);
+RATEQ=sum(RATEGQ.*WEIGHT,3)./sum(WEIGHT,3);
+RATEL=sum(RATEGL.*WEIGHT,3)./sum(WEIGHT,3);
+ACCQ=sum(2*GG.*weight,2)./sum(weight,2);
+TRENDL=sum(BG.*weight,2)./sum(weight,2);
+SLQ=sum(SLevQ.*WEIGHT,3)./sum(WEIGHT,3);
+SLL=sum(SLevL.*WEIGHT,3)./sum(WEIGHT,3);
+
+% compute conus averages less the western gulf
+YGM2=sum(YG.*WEIGHT2,3)./sum(WEIGHT2,3);
+RATEQ2=sum(RATEGQ.*WEIGHT2,3)./sum(WEIGHT2,3);
+RATEL2=sum(RATEGL.*WEIGHT2,3)./sum(WEIGHT2,3);
+ACCQ2=sum(2*GG.*weight2,2)./sum(weight2,2);
+TRENDL2=sum(BG.*weight2,2)./sum(weight2,2);
+SLQ2=sum(SLevQ.*WEIGHT2,3)./sum(WEIGHT2,3);
+SLL2=sum(SLevL.*WEIGHT2,3)./sum(WEIGHT2,3);
 
 % compute 25-year residuals
 reswin=25;
@@ -179,28 +193,28 @@ fig.Position(4) = fig.Position(4)*1.5;
  set(gca,'fontsize',12)
 
  subplot(3,3,3)
- histogram(1e3*TRENDL,[1:.2:4],'normalization','probability','edgecolor','none','facecolor',clr0(2,:))
+ histogram(1e3*TRENDL,[0:.2:4],'normalization','probability','edgecolor','none','facecolor',clr0(2,:))
  grid on, box on, hold on
- histogram(1e3*TRENDL2,[1:.2:4],'normalization','probability','edgecolor','none','facecolor',clr0(4,:))
+ histogram(1e3*TRENDL2,[0:.2:4],'normalization','probability','edgecolor','none','facecolor',clr0(4,:))
  xlabel('RSL Historical Trend (mm/yr)')
  ylabel('Probability')
  legend([{'CONUS'};{'No Western Gulf'}],'location','northwest','orientation','vertical'), legend boxoff
  axis([1 4 0 0.8])
- set(gca,'xtick',0:3,'ytick',0:0.2:0.8)
+ set(gca,'xtick',0:4,'ytick',0:0.2:0.8)
  set(gca,'fontsize',12)
- title('c. CONUS Historical Trend (mm/yr)','fontweight','normal')
+ title([{'c. CONUS RSL'};{'Historical Trend (mm/yr)'}],'fontweight','normal')
 
  subplot(3,3,6)
- histogram(1e3*ACCQ,[0:0.002:0.03],'normalization','probability','edgecolor','none','facecolor',clr0(2,:))
+ histogram(1e3*ACCQ,[0:0.002:0.04],'normalization','probability','edgecolor','none','facecolor',clr0(2,:))
  grid on, box on, hold on
- histogram(1e3*ACCQ2,[0:0.002:0.03],'normalization','probability','edgecolor','none','facecolor',clr0(4,:))
+ histogram(1e3*ACCQ2,[0:0.002:0.04],'normalization','probability','edgecolor','none','facecolor',clr0(4,:))
  xlabel('RSL Acceleration (mm/yr^2)')
  ylabel('Probability')
  legend([{'CONUS'};{'No Western Gulf'}],'location','northwest','orientation','vertical'), legend boxoff
- axis([0 0.03 0 0.4])
- set(gca,'xtick',0:0.01:0.03,'ytick',0:0.1:0.4)
+ axis([0 0.04 0 0.4])
+ set(gca,'xtick',0:0.01:0.04,'ytick',0:0.1:0.4)
  set(gca,'fontsize',12)
- title('d. CONUS RSL Acceleration (mm/yr^2)','fontweight','normal')
+ title([{'d. CONUS RSL'};{'Acceleration (mm/yr^2)'}],'fontweight','normal')
 
  subplot(3,3,9)
 
@@ -219,3 +233,4 @@ title('e. CONUS RSL Rate (mm/yr)','fontweight','normal')
 set(gca,'fontsize',12,'fontweight','normal','xtick',1900:25:2025,'ytick',0:6)
 set(gca,'fontsize',12)
 xtickangle(45)
+keyboard

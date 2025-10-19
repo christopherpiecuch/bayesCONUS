@@ -41,6 +41,21 @@ for qqq=1:numel(runnum)
         BG(kk,:)=x;
     end
 
+    GG=zeros(numel(ALPHA),Ng);
+    for kk=1:numel(ALPHA), disp(num2str(kk))
+        MATMAT=OMEGA_2(kk)*exp(-RHO(kk)*Dall);
+        y=G(kk,:)';
+        muy=ALPHA(kk)*ONE;
+        mux=ALPHA(kk)*ONEG;
+        BMAT=MATMAT(1:N,1:N);
+        AMAT=MATMAT(((N+1):end),((N+1):end));
+        CMAT=MATMAT(((N+1):end),(1:N));
+        thing=AMAT-CMAT*inv(BMAT)*CMAT';
+        thing=0.5*(thing+thing');
+        x=mvnrnd(mux+CMAT*inv(BMAT)*(y-muy),thing);
+        GG(kk,:)=x;
+    end
+
     % innovations
     E=nan*Y;
     T=1900:2024;
@@ -49,13 +64,13 @@ for qqq=1:numel(runnum)
 
     % initial conditions
     Y_0G=zeros(numel(MU),Ng);
-    Y_0G=ones(numel(MU),1)*median(BG)*T0+(ones(numel(MU),1)*( abs(std(BG)*T0)+sqrt(median(SIGMA_2)) )).*randn(numel(MU),Ng);
+    Y_0G=ones(numel(MU),1)*median(BG)*T0+ones(numel(MU),1)*median(GG)*T0^2+(ones(numel(MU),1)*( abs(std(BG)*T0)+sqrt(median(SIGMA_2)) )).*randn(numel(MU),Ng);
     for kk=1:numel(MU)
         for tt=1:numel(T)
             if tt==1
-                E(kk,tt,:)=squeeze(Y(kk,tt,:))'-B(kk,:)*T(tt)-R(kk)*(squeeze(Y_0(kk,:))-B(kk,:)*T0);
+                E(kk,tt,:)=squeeze(Y(kk,tt,:))'-B(kk,:)*T(tt)-G(kk,:)*T(tt)^2-R(kk)*(squeeze(Y_0(kk,:))-B(kk,:)*T0-G(kk,:)*T0^2);
             else
-                E(kk,tt,:)=squeeze(Y(kk,tt,:))'-B(kk,:)*T(tt)-R(kk)*(squeeze(Y(kk,tt-1,:))'-B(kk,:)*T(tt-1));
+                E(kk,tt,:)=squeeze(Y(kk,tt,:))'-B(kk,:)*T(tt)-G(kk,:)*T(tt)^2-R(kk)*(squeeze(Y(kk,tt-1,:))'-B(kk,:)*T(tt-1)-G(kk,:)*T(tt-1)^2);
             end
         end
     end
@@ -83,9 +98,9 @@ for qqq=1:numel(runnum)
     for kk=1:numel(MU), disp(num2str(kk))
         for tt=1:numel(T)
             if tt==1
-                YG(kk,tt,:)=(BG(kk,:)*T0)'+R(kk)*(Y_0G(kk,:)'-(BG(kk,:)*T0)')+squeeze(EG(kk,tt,:));
+                YG(kk,tt,:)=(BG(kk,:)*T0)'+(GG(kk,:)*T0^2)'+R(kk)*(Y_0G(kk,:)'-(BG(kk,:)*T0)'-(GG(kk,:)*T0^2)')+squeeze(EG(kk,tt,:));
             else
-                YG(kk,tt,:)=(BG(kk,:)*T(tt))'+R(kk)*(squeeze(YG(kk,tt-1,:))-(BG(kk,:)*T(tt-1))')+squeeze(EG(kk,tt,:));
+                YG(kk,tt,:)=(BG(kk,:)*T(tt))'+(GG(kk,:)*T(tt)^2)'+R(kk)*(squeeze(YG(kk,tt-1,:))-(BG(kk,:)*T(tt-1))'-(GG(kk,:)*T(tt-1)^2)')+squeeze(EG(kk,tt,:));
             end
         end
     end
@@ -95,7 +110,9 @@ for qqq=1:numel(runnum)
     YG=YG;
     A=A;
     B=B;
+    G=G;
     BG=BG;
+    GG=GG;
     LON=LON;
     LAT=LAT;
     GLON=g_lon;
@@ -105,6 +122,6 @@ for qqq=1:numel(runnum)
     YEAR=1900:2024;
     L=ELL;
 
-    save([expNam,'_gridded.mat'],'Y','YG','B','A','BG','LON','LAT','GLON','GLAT','DATA','NAME','YEAR','L')
+    save([expNam,'_gridded.mat'],'Y','YG','B','A','BG','LON','LAT','GLON','GLAT','DATA','NAME','YEAR','L','G','GG')
     clearvars -except qqq expNam experimentName runnum
 end

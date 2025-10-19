@@ -129,7 +129,8 @@ C = determine_clusters(LON);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Set the seeds of the random number generator
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-rng(runnum*sum(clock))
+%rng(runnum*sum(clock))
+rng(runnum)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Allocate space for the sample arrays
@@ -191,7 +192,7 @@ if startFromPickup
     load(['bayes_model_solutions/experiment_',save_name,'.mat'],...
             'MU','NU','PI_2','DELTA_2','SIGMA_2','TAU_2','GAMMA_2',...
             'PHI','LAMBDA','A','B','ELL','R','Y_0','Y', 'HP','*DATA','*LON','*LAT',...
-            '*NAME','N','K','M','D','nn','inp','g_lon','g_lat')
+            '*NAME','N','K','M','D','nn','inp','g_lon','g_lat','G','OMEGA_2','RHO','ALPHA')
     % set start time
     nn_start=nn+1; clear nn
     % reset initial values
@@ -217,7 +218,7 @@ for nn=nn_start:NN,
         save(['bayes_model_solutions/experiment_',save_name,'.mat'],...
             'MU','NU','PI_2','DELTA_2','SIGMA_2','TAU_2','GAMMA_2',...
             'PHI','LAMBDA','A','B','ELL','R','Y_0','Y', 'HP','*DATA','*LON','*LAT',...
-            '*NAME','N','K','M','D','nn','inp')
+            '*NAME','N','K','M','D','nn','inp','G','ALPHA','RHO','OMEGA_2','G','ALPHA','RHO','OMEGA_2')
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -227,13 +228,15 @@ for nn=nn_start:NN,
     SMat=C.*exp(-phi*D); invSMat=inv(SMat);
     PiMat=pi_2*exp(-lambda*D); invPiMat=inv(PiMat); 
     LMat=exp(-lambda*D); invLMat=inv(LMat);
+    OmegaMat=omega_2*exp(-rho*D); invOmegaMat=inv(OmegaMat); 
+    RMat=exp(-rho*D); invRMat=inv(RMat);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Sample from p(y_K|.)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     V_Y_K=[]; PSI_Y_K=[];
     V_Y_K=delta_2^(-1)*(selMat(K).H'*(Z(K).z-selMat(K).F*(l+a*T(K))))+...
-    	invSigmaMat*(r*y(:,K-1)+(T(K)-r*T(K-1))*b);
+    	invSigmaMat*(r*y(:,K-1)+(T(K)-r*T(K-1))*b+(T(K)^2-r*T(K-1)^2)*g);
     PSI_Y_K=inv(1/delta_2*selMat(K).H'*selMat(K).H+invSigmaMat);
     y(:,K)=mvnrnd(PSI_Y_K*V_Y_K,PSI_Y_K)';
     clear V_Y_K PSI_Y_K   
@@ -245,10 +248,10 @@ for nn=nn_start:NN,
     	V_Y_k=[]; PSI_Y_k=[];
       	if kk==1
         	V_Y_k=1/delta_2*(selMat(1).H'*(Z(1).z-selMat(1).F*(l+a*T(1))))+...
-                invSigmaMat*(r*(y_0+y(:,2))+(1+r^2)*T(1)*b-r*(T0+T(2))*b);
+                invSigmaMat*(r*(y_0+y(:,2))+(1+r^2)*T(1)*b-r*(T0+T(2))*b+(1+r^2)*T(1)^2*g-r*(T0^2+T(2)^2)*g);
         else
          	V_Y_k=1/delta_2*(selMat(kk).H'*(Z(kk).z-selMat(kk).F*(l+a*T(kk))))+...
-            	invSigmaMat*(r*(y(:,kk-1)+y(:,kk+1))+(1+r^2)*T(kk)*b-r*(T(kk-1)+T(kk+1))*b);
+            	invSigmaMat*(r*(y(:,kk-1)+y(:,kk+1))+(1+r^2)*T(kk)*b-r*(T(kk-1)+T(kk+1))*b+(1+r^2)*T(kk)^2*g-r*(T(kk-1)^2+T(kk+1)^2)*g);
         end
        	PSI_Y_k=inv(1/delta_2*selMat(kk).H'*selMat(kk).H+(1+r^2)*invSigmaMat);
        	y(:,kk)=mvnrnd(PSI_Y_k*V_Y_k,PSI_Y_k)';
@@ -259,7 +262,7 @@ for nn=nn_start:NN,
     % Sample from p(y_0|.)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     V_Y_0=[]; PSI_Y_0=[];
-    V_Y_0=III*HP.eta_tilde_y_0+invSigmaMat*(r*y(:,1)-r*(T(1)-r*T0)*b);
+    V_Y_0=III*HP.eta_tilde_y_0+invSigmaMat*(r*y(:,1)-r*(T(1)-r*T0)*b-r*(T(1)^2-r*T0^2)*g);
     PSI_Y_0=inv(III+r^2*invSigmaMat);
     y_0=mvnrnd(PSI_Y_0*V_Y_0,PSI_Y_0)';
     clear V_Y_0 PSI_Y_0
@@ -296,11 +299,11 @@ for nn=nn_start:NN,
     V_R=0; PSI_R=0;
     for kk=1:K
      	if kk==1
-         	V_R=V_R+((y_0-b*T0)')*invSigmaMat*(y(:,1)-b*T(1));
-         	PSI_R=PSI_R+((y_0-b*T0)')*invSigmaMat*(y_0-b*T0);
+         	V_R=V_R+((y_0-b*T0-g*T0^2)')*invSigmaMat*(y(:,1)-b*T(1)-g*T(1)^2);
+         	PSI_R=PSI_R+((y_0-b*T0-g*T0^2)')*invSigmaMat*(y_0-b*T0-g*T0^2);
         else
-         	V_R=V_R+((y(:,kk-1)-b*T(kk-1))')*invSigmaMat*(y(:,kk)-b*T(kk));
-          	PSI_R=PSI_R+((y(:,kk-1)-b*T(kk-1))')*invSigmaMat*(y(:,kk-1)-b*T(kk-1));
+         	V_R=V_R+((y(:,kk-1)-b*T(kk-1)-g*T(kk-1)^2)')*invSigmaMat*(y(:,kk)-b*T(kk)-g*T(kk)^2);
+          	PSI_R=PSI_R+((y(:,kk-1)-b*T(kk-1)-g*T(kk-1)^2)')*invSigmaMat*(y(:,kk-1)-b*T(kk-1)-g*T(kk-1)^2);
         end        
    	end
     PSI_R=inv(PSI_R);
@@ -321,11 +324,11 @@ for nn=nn_start:NN,
     for kk=1:K
      	if kk==1
          	DYKK=[];
-          	DYKK=y(:,1)-r*y_0-(T(1)-r*T0)*b;
+          	DYKK=y(:,1)-r*y_0-(T(1)-r*T0)*b-(T(1)^2-r*T0^2)*g;
          	SUM_K=SUM_K+(DYKK')*invSMat*DYKK;           
         else
          	DYKK=[];
-           	DYKK=y(:,kk)-r*y(:,kk-1)-(T(kk)-r*T(kk-1))*b;
+           	DYKK=y(:,kk)-r*y(:,kk-1)-(T(kk)-r*T(kk-1))*b-(T(kk)^2-r*T(kk-1)^2)*g;
          	SUM_K=SUM_K+(DYKK')*invSMat*DYKK;           
         end
     end
@@ -347,11 +350,11 @@ for nn=nn_start:NN,
     sumk_prp=0;
    	for kk=1:K
       	if kk==1
-         	DYYK=y(:,1)-r*y_0-(T(1)-r*T0)*b;
+         	DYYK=y(:,1)-r*y_0-(T(1)-r*T0)*b-(T(1)^2-r*T0^2)*g;
           	sumk_now=sumk_now+(DYYK')*invR_now*DYYK;
           	sumk_prp=sumk_prp+(DYYK')*invR_prp*DYYK;
         else
-         	DYYK=y(:,kk)-r*y(:,kk-1)-(T(kk)-r*T(kk-1))*b;
+         	DYYK=y(:,kk)-r*y(:,kk-1)-(T(kk)-r*T(kk-1))*b-(T(kk)^2-r*T(kk-1)^2)*g;
          	sumk_now=sumk_now+(DYYK')*invR_now*DYYK;
          	sumk_prp=sumk_prp+(DYYK')*invR_prp*DYYK;
         end
@@ -412,7 +415,16 @@ for nn=nn_start:NN,
    	PSI_MU=inv(1/HP.zeta_tilde_mu_2+ONE_N'*invPiMat*ONE_N);
     mu=normrnd(PSI_MU*V_MU,sqrt(PSI_MU));
     clear V_MU PSI_MU  
-        
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Sample from p(alpha|.)
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    V_ALPHA=[]; PSI_ALPHA=[];
+    V_ALPHA=HP.eta_tilde_alpha/HP.zeta_tilde_alpha_2+ONE_N'*invOmegaMat*(g);
+    PSI_ALPHA=inv(1/HP.zeta_tilde_alpha_2+ONE_N'*invOmegaMat*ONE_N);
+    alpha=normrnd(PSI_ALPHA*V_ALPHA,sqrt(PSI_ALPHA));
+    clear V_ALPHA PSI_ALPHA  
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Sample from p(pi_2|.)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -422,7 +434,19 @@ for nn=nn_start:NN,
     pi_2=1/randraw('gamma', [0,1/(HP.chi_tilde_pi_2+inside2),...
       	(HP.xi_tilde_pi_2+inside1)], [1,1]);
    	clear inside*
-      
+    PiMat=pi_2*exp(-lambda*D); invPiMat=inv(PiMat); 
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Sample from p(omega_2|.)
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    inside1=[]; inside2=[];
+    inside1=N/2;
+    inside2=1/2*((g-alpha*ONE_N)'*invRMat)*(g-alpha*ONE_N);
+    omega_2=1/randraw('gamma', [0,1/(HP.chi_tilde_omega_2+inside2),...
+      	(HP.xi_tilde_omega_2+inside1)], [1,1]);
+   	clear inside*
+    OmegaMat=omega_2*exp(-rho*D); invOmegaMat=inv(OmegaMat); 
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Sample from p(lambda|.)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -451,21 +475,65 @@ for nn=nn_start:NN,
     LMat=exp(-lambda*D); invLMat=inv(LMat);
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Sample from p(rho|.)
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    Rho_now=log(rho);
+    Rho_std=0.05;
+    Rho_prp=normrnd(Rho_now,Rho_std);
+    R_now=exp(-exp(Rho_now)*D);
+    R_prp=exp(-exp(Rho_prp)*D);
+    invR_now=inv(R_now);
+    invR_prp=inv(R_prp);
+    sumk_now=0;
+    sumk_prp=0;
+    sumk_now=(g-alpha*ONE_N)'*invR_now*(g-alpha*ONE_N);
+    sumk_prp=(g-alpha*ONE_N)'*invR_prp*(g-alpha*ONE_N);
+ 	ins_now=-1/(2*HP.zeta_tilde_rho_2)*(Rho_now-HP.eta_tilde_rho)^2-1/(2*omega_2)*sumk_now;
+   	ins_prp=-1/(2*HP.zeta_tilde_rho_2)*(Rho_prp-HP.eta_tilde_rho)^2-1/(2*omega_2)*sumk_prp;
+  	MetFrac=det(R_prp*invR_now)^(-1/2)*exp(ins_prp-ins_now);
+   	success_rate=min(1,MetFrac);
+   	if rand(1)<=success_rate
+     	Rho_now=Rho_prp; 
+    end
+  	rho=exp(Rho_now);
+  	clear Rho_now Rho_std Rho_prp mat_now mat_prp ins_* sumk MetFrac success_rate R_*
+    % update matrices since you just updated rho
+    OmegaMat=omega_2*exp(-rho*D); invOmegaMat=inv(OmegaMat); 
+    RMat=exp(-rho*D); invRMat=inv(RMat);
+
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Sample from p(b|.)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    	V_B=[]; PSI_B=[]; SUM_K=ZERO_N;
     for kk=1:K
      	if kk==1
-         	SUM_K=SUM_K+(T(1)-r*T0)*(y(:,1)-r*y_0);
+         	SUM_K=SUM_K+(T(1)-r*T0)*(y(:,1)-r*y_0-g*(T(1)^2-r*T0^2));
         else
-          	SUM_K=SUM_K+(T(kk)-r*T(kk-1))*(y(:,kk)-r*y(:,kk-1));
+          	SUM_K=SUM_K+(T(kk)-r*T(kk-1))*(y(:,kk)-r*y(:,kk-1)-g*(T(kk)^2-r*T(kk-1)^2));
         end
    	end
     V_B=invPiMat*(mu*ONE_N)+invSigmaMat*SUM_K;
     PSI_B=inv(invPiMat+invSigmaMat*sum((T-r*[T0 T(1:K-1)]).^2));
     b=mvnrnd(PSI_B*V_B,PSI_B)';
     clear V_B PSI_B SUM_K
-    
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Sample from p(g|.)
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   	V_G=[]; PSI_G=[]; SUM_K=ZERO_N;
+    for kk=1:K
+     	if kk==1
+         	SUM_K=SUM_K+(T(1)^2-r*T0^2)*(y(:,1)-r*y_0-b*(T(1)-r*T0));
+        else
+          	SUM_K=SUM_K+(T(kk)^2-r*T(kk-1)^2)*(y(:,kk)-r*y(:,kk-1)-b*(T(kk)-r*T(kk-1)));
+        end
+   	end
+    V_G=invOmegaMat*(alpha*ONE_N)+invSigmaMat*SUM_K;
+    PSI_G=inv(invOmegaMat+invSigmaMat*sum((T.^2-r*[T0 T(1:K-1)].^2).^2));
+    g=mvnrnd(PSI_G*V_G,PSI_G)';
+    clear V_G PSI_G SUM_K
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Now update arrays
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -485,4 +553,4 @@ delete_burn_in
 save(['bayes_model_solutions/experiment_',save_name,'.mat'],...
     'MU','NU','PI_2','DELTA_2','SIGMA_2','TAU_2','GAMMA_2',...
     'PHI','LAMBDA','A','B','ELL','R','Y_0','Y', 'HP','*DATA','*LON','*LAT',...
-    '*NAME','N','K','M','D','nn','inp','g_lon','g_lat')
+    '*NAME','N','K','M','D','nn','inp','g_lon','g_lat','G','ALPHA','RHO','OMEGA_2')

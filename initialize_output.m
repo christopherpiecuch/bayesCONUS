@@ -22,3 +22,8 @@ SIGMA_2 = nan(NN_thin,1);   % Sill of the process innovations
 DELTA_2 = nan(NN_thin,1);   % Instrumental error variance 
 TAU_2 = nan(NN_thin,1);     % Spatial variance in observational biases
 GAMMA_2 = nan(NN_thin,1);   % Spatial variance in error trends
+
+G = nan(NN_thin,N);         % x
+ALPHA = nan(NN_thin,1);        % x
+OMEGA_2 = nan(NN_thin,1);        % x
+RHO = nan(NN_thin,1);    % x
