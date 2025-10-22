@@ -21,6 +21,9 @@ Text files
 •	Copyright: copyright statement
 •	License: license statement
 
+Data files
+•	CONUS_RSL.xlsx: Excel spreadsheet with annual summary statistics of the posterior CONUS-averaged RSL solution
+
 MATLAB .m files
 •	bayes_run_analyses.m: this is the main driver code of the model.  Simply execute “bayes_run_analyses” in the MATLAB Command Window from this directory, and this code should run “out of the box” and produce the figures in the paper after a few hours.
 •	bayes_main_code.m: This performs the Bayesian inference at and based on the tide-gauge data
